@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Torrent Player (funcionando)</title>
+  <style>
+    /* Seu CSS já dado */
+    body { background:#0b0f14; color:#e6f1ff; font-family: Arial, sans-serif; margin:0; }
+    header { padding:16px 20px; background:#0f1720; position:sticky; top:0; z-index:2; }
+    h1 { margin:0; font-size:18px; }
+    .wrap { padding:16px 20px; display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .col { background:#101822; border:1px solid #1d2a3a; border-radius:10px; padding:12px; }
+    textarea { width:100%; height:200px; background:#0d141c; color:#dce7f7; border:1px solid #1d2a3a; border-radius:8px; padding:10px; }
+    button { background:#00e1ff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:bold; }
+    button:hover { filter:brightness(0.9); }
+    ul { list-style:none; padding:0; margin:0; max-height:360px; overflow:auto; }
+    li { margin:8px 0; padding:10px; border:1px solid #1d2a3a; border-radius:8px; background:#0d141c; }
+    .title { font-weight:bold; font-size:14px; }
+    .meta { font-size:12px; opacity:0.8; }
+    .row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    .pill { background:#172232; padding:4px 8px; border-radius:6px; font-size:12px; }
+    video { width:100%; max-height:65vh; background:#000; border-radius:10px; outline:0; }
+    .note { font-size:12px; opacity:0.8; margin-top:8px; }
+    .inline { display:flex; gap:8px; align-items:center; }
+    input[type=text] { flex:1; background:#0d141c; color:#dce7f7; border:1px solid #1d2a3a; border-radius:8px; padding:10px; }
+  </style>
+</head>
+<body>
+  <header><h1>🎬 Torrent Player (com WebTorrent no servidor)</h1></header>
+
+  <div class="wrap">
+    <div class="col">
+      <h3>1) Cole aqui o JSON de <code>/stream/...</code> do Torrentio</h3>
+      <textarea id="jsonArea" placeholder='Cole aqui {"streams":[...]}...'></textarea>
+      <div class="row" style="margin-top:8px;">
+        <div class="inline" style="flex:1;">
+          <input id="imdbId" type="text" placeholder="Ou use: tt0133093 (IMDb), clique Buscar" />
+          <button id="btnFetch">Buscar Torrentio</button>
+        </div>
+        <button id="btnParse">Listar opções</button>
+      </div>
+      <p class="note">Dica: também funciona com Kitsu IDs. O servidor chama o Torrentio por você.</p>
+      <ul id="lista"></ul>
+    </div>
+
+    <div class="col">
+      <h3>2) Player</h3>
+      <video id="player" controls autoplay></video>
+      <p class="note">Se o vídeo não tocar, tente outra opção (prefira <b>.mp4</b>/<b>.webm</b>). Alguns <b>.mkv</b> não tocam em todos os navegadores.</p>
+      <div class="row">
+        <span class="pill" id="currentInfo">Aguardando seleção…</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const lista = document.getElementById('lista');
+    const player = document.getElementById('player');
+    const currentInfo = document.getElementById('currentInfo');
+    const area = document.getElementById('jsonArea');
+    const imdbId = document.getElementById('imdbId');
+    const btnFetch = document.getElementById('btnFetch');
+    const btnParse = document.getElementById('btnParse');
+
+    function renderStreams(streams) {
+      lista.innerHTML = '';
+      streams.forEach(s => {
+        const li = document.createElement('li');
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = s.title || s.name || '(sem título)';
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = `infoHash: ${s.infoHash}${s.fileIdx !== undefined ? ' | fileIdx: ' + s.fileIdx : ''}`;
+
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const btnPlay = document.createElement('button');
+        btnPlay.textContent = '▶ Reproduzir';
+        btnPlay.onclick = () => {
+          const url = `/stream/${s.infoHash}${s.fileIdx !== undefined ? ('?fileIdx=' + s.fileIdx) : ''}`;
+          player.src = url;
+          player.play().catch(()=>{});
+          currentInfo.textContent = url;
+        };
+
+        const pill = document.createElement('span');
+        pill.className = 'pill';
+        pill.textContent = s.behaviorHints?.filename || 'arquivo selecionado do torrent';
+
+        row.appendChild(btnPlay);
+        row.appendChild(pill);
+
+        li.appendChild(title);
+        li.appendChild(meta);
+        li.appendChild(row);
+        lista.appendChild(li);
+      });
+    }
+
+    btnParse.onclick = () => {
+      try {
+        const obj = JSON.parse(area.value);
+        if (!obj.streams) throw new Error('JSON sem "streams"');
+        renderStreams(obj.streams);
+      } catch (e) {
+        alert('Erro ao ler JSON: ' + e.message);
+      }
+    };
+
+    btnFetch.onclick = async () => {
+      const id = imdbId.value.trim();
+      if (!id) return alert('Informe um IMDb ID (ex.: tt0133093)');
+      try {
+        const r = await fetch(`/api/torrentio?type=movie&id=${encodeURIComponent(id)}`);
+        const data = await r.json();
+        if (!data.streams) throw new Error('Resposta sem streams');
+        area.value = JSON.stringify(data, null, 2);
+        renderStreams(data.streams);
+      } catch (e) {
+        alert('Erro ao buscar Torrentio: ' + e.message);
+      }
+    };
+  </script>
+</body>
+</html>
