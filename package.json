@@ -1,0 +1,16 @@
+{
+  "name": "e4vx",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mime-types": "^3.0.1",
+    "range-parser": "^1.2.1",
+    "webtorrent": "^2.6.10"
+  }
+}
